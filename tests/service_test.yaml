@@ -1,0 +1,14 @@
+suite: Service
+release:
+  name: unpackerr
+templates:
+  - templates/service.yaml
+tests:
+  - it: exposes port 5656 for the web UI and metrics
+    asserts:
+      - equal:
+          path: spec.ports
+          value:
+            - name: http
+              port: 5656
+              targetPort: http

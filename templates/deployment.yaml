@@ -1,0 +1,102 @@
+{{- if not .Values.media }}
+{{- fail "media needs at least one claim" }}
+{{- end }}
+{{- range .Values.media }}
+{{- $name := required "each media entry needs a name" .name }}
+{{- $_ := required (printf "media entry %s needs an existingClaim" $name) .existingClaim }}
+{{- $_ := required (printf "media entry %s needs a mountPath" $name) .mountPath }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "unpackerr.labels" . | nindent 4 }}
+spec:
+  # Unpackerr keeps its state in memory and has no volume of its own, so one copy is all there is to run.
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "unpackerr.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "unpackerr.podLabels" . | nindent 8 }}
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      securityContext:
+        runAsUser: {{ .Values.user }}
+        runAsGroup: {{ .Values.group }}
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: unpackerr
+          image: "golift/unpackerr:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          env:
+            - name: TZ
+              value: {{ .Values.timezone | quote }}
+            # Never set empty: an empty value wipes the stored password hash.
+            - name: UN_WEBSERVER_UI_PASSWORD
+              valueFrom:
+                {{- include "unpackerr.secretKeyRef" (list "uiPassword" .Values.uiPassword) | nindent 16 }}
+            - name: UN_WEBSERVER_METRICS
+              value: "true"
+            - name: UN_WEBSERVER_ROLES_metrics_PERMISSIONS_0
+              value: system:metrics:read
+            - name: UN_WEBSERVER_API_KEYS_0_NAME
+              value: prometheus
+            - name: UN_WEBSERVER_API_KEYS_0_KEY
+              valueFrom:
+                {{- include "unpackerr.secretKeyRef" (list "metricsApiKey" .Values.metricsApiKey) | nindent 16 }}
+            - name: UN_WEBSERVER_API_KEYS_0_ROLES_0
+              value: metrics
+            {{- range $kind := list "sonarr" "radarr" "lidarr" "readarr" }}
+            {{- range $i, $app := index $.Values $kind }}
+            - name: UN_{{ upper $kind }}_{{ $i }}_URL
+              value: {{ required (printf "%s[%d].url is required" $kind $i) $app.url | quote }}
+            - name: UN_{{ upper $kind }}_{{ $i }}_API_KEY
+              valueFrom:
+                {{- include "unpackerr.secretKeyRef" (list (printf "%s[%d].apiKey" $kind $i) $app.apiKey) | nindent 16 }}
+            {{- end }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: 5656
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 30
+          readinessProbe:
+            tcpSocket:
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- range .Values.media }}
+            - name: media-{{ .name }}
+              mountPath: {{ .mountPath }}
+            {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+        {{- range .Values.media }}
+        - name: media-{{ .name }}
+          persistentVolumeClaim:
+            claimName: {{ .existingClaim }}
+        {{- end }}

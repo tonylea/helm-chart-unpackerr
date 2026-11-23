@@ -1,0 +1,22 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "unpackerr.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "unpackerr.selectorLabels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .Values.serviceMonitor.interval }}
+      authorization:
+        type: Bearer
+        credentials:
+          name: {{ required "metricsApiKey.secretKeyRef.name is required" .Values.metricsApiKey.secretKeyRef.name }}
+          key: {{ required "metricsApiKey.secretKeyRef.key is required" .Values.metricsApiKey.secretKeyRef.key }}
+{{- end }}

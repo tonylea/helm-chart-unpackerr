@@ -1,0 +1,60 @@
+image:
+  # Empty uses the chart's appVersion.
+  tag: ""
+
+# The user and group Unpackerr runs as.
+user: 1000
+group: 1000
+
+timezone: UTC
+
+# The *arr apps Unpackerr polls, one list per kind.
+# Each entry needs a url and the Secret and key holding that app's API key.
+# Bookshelf and other Readarr forks go under readarr.
+# - url: http://sonarr:8989
+#   apiKey:
+#     secretKeyRef:
+#       name: sonarr-api-key
+#       key: api-key
+sonarr: []
+radarr: []
+lidarr: []
+readarr: []
+
+# The Secret and key holding the web UI login, as <user>:<password>.
+uiPassword:
+  secretKeyRef:
+    name: ""
+    key: ui-password
+
+# The Secret and key holding the API key that may read /metrics, 60 to 150 ASCII characters.
+metricsApiKey:
+  secretKeyRef:
+    name: ""
+    key: api-key
+
+# The claims Unpackerr extracts in, each mounted at its own path.
+# The paths must match the ones the *arr apps see.
+# - name: library
+#   existingClaim: library
+#   mountPath: /data
+media: []
+
+resources: {}
+
+affinity: {}
+
+# Needs the Prometheus Operator's CRDs.
+serviceMonitor:
+  enabled: true
+  interval: 30s
+
+# The official Unpackerr dashboard, for Grafana's dashboard sidecar.
+dashboard:
+  enabled: true
+
+# A Gateway API HTTPRoute to the web UI.
+httpRoute:
+  enabled: false
+  parentRefs: []
+  hostnames: []

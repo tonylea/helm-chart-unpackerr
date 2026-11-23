@@ -1,0 +1,21 @@
+suite: Dashboard
+release:
+  name: unpackerr
+templates:
+  - templates/dashboard.yaml
+tests:
+  - it: ships the dashboard for Grafana's sidecar
+    asserts:
+      - equal:
+          path: metadata.labels.grafana_dashboard
+          value: "1"
+      - matchRegex:
+          path: data["unpackerr.json"]
+          pattern: '"title": "Unpackerr"'
+
+  - it: renders nothing when disabled
+    set:
+      dashboard.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

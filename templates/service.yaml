@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "unpackerr.labels" . | nindent 4 }}
+spec:
+  selector:
+    {{- include "unpackerr.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 5656
+      targetPort: http

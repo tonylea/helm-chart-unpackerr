@@ -1,0 +1,13 @@
+{{- if .Values.dashboard.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-dashboard
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "unpackerr.labels" . | nindent 4 }}
+    grafana_dashboard: "1"
+data:
+  unpackerr.json: |
+    {{- .Files.Get "dashboards/unpackerr.json" | nindent 4 }}
+{{- end }}
