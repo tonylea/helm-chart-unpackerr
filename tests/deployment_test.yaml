@@ -1,0 +1,246 @@
+suite: Deployment
+release:
+  name: unpackerr
+templates:
+  - templates/deployment.yaml
+set:
+  uiPassword.secretKeyRef.name: unpackerr
+  metricsApiKey.secretKeyRef.name: unpackerr
+  media:
+    - name: library
+      existingClaim: library
+      mountPath: /data
+tests:
+  - it: runs one replica of the chart's appVersion, stopping the old pod first
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 1
+      - equal:
+          path: spec.strategy.type
+          value: Recreate
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: golift/unpackerr:v1.0.1
+
+  - it: uses the image tag when one is set
+    set:
+      image.tag: v1.0.0
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: golift/unpackerr:v1.0.0
+
+  - it: runs non-root as 1000:1000 with capabilities dropped and no privilege escalation
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext
+          value:
+            runAsUser: 1000
+            runAsGroup: 1000
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+      - equal:
+          path: spec.template.spec.containers[0].securityContext
+          value:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+
+  - it: runs as another user and group when set
+    set:
+      user: 1026
+      group: 100
+    asserts:
+      - equal:
+          path: spec.template.spec.securityContext.runAsUser
+          value: 1026
+      - equal:
+          path: spec.template.spec.securityContext.runAsGroup
+          value: 100
+
+  - it: sets the login and the metrics key from Secrets
+    set:
+      uiPassword.secretKeyRef.key: login
+      metricsApiKey.secretKeyRef.key: metrics
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: UN_WEBSERVER_UI_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: unpackerr
+                key: login
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: UN_WEBSERVER_API_KEYS_0_KEY
+            valueFrom:
+              secretKeyRef:
+                name: unpackerr
+                key: metrics
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: UN_WEBSERVER_METRICS
+            value: "true"
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: UN_WEBSERVER_ROLES_metrics_PERMISSIONS_0
+            value: system:metrics:read
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: UN_WEBSERVER_API_KEYS_0_ROLES_0
+            value: metrics
+
+  - it: fails without the login Secret
+    set:
+      uiPassword.secretKeyRef.name: ""
+    asserts:
+      - failedTemplate:
+          errorMessage: uiPassword.secretKeyRef.name is required
+
+  - it: turns each watched app into numbered UN_<KIND>_<n>_ variables
+    set:
+      sonarr:
+        - url: http://sonarr:8989
+          apiKey:
+            secretKeyRef:
+              name: sonarr-api-key
+              key: api-key
+        - url: http://sonarr-4k:8989
+          apiKey:
+            secretKeyRef:
+              name: sonarr-4k-api-key
+              key: key
+      readarr:
+        - url: http://bookshelf:8787
+          apiKey:
+            secretKeyRef:
+              name: bookshelf-api-key
+              key: api-key
+    asserts:
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: UN_SONARR_0_URL
+            value: http://sonarr:8989
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: UN_SONARR_0_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: sonarr-api-key
+                key: api-key
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: UN_SONARR_1_URL
+            value: http://sonarr-4k:8989
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: UN_SONARR_1_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: sonarr-4k-api-key
+                key: key
+      - contains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: UN_READARR_0_URL
+            value: http://bookshelf:8787
+      - notContains:
+          path: spec.template.spec.containers[0].env
+          content:
+            name: UN_RADARR_0_URL
+            value: ""
+
+  - it: fails when a watched app has no API key Secret
+    set:
+      radarr:
+        - url: http://radarr:7878
+    asserts:
+      - failedTemplate:
+          errorMessage: radarr[0].apiKey.secretKeyRef.name is required
+
+  - it: probes the port with a TCP check
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].startupProbe.tcpSocket.port
+          value: http
+      - equal:
+          path: spec.template.spec.containers[0].livenessProbe.tcpSocket.port
+          value: http
+      - equal:
+          path: spec.template.spec.containers[0].readinessProbe.tcpSocket.port
+          value: http
+
+  - it: sets no resources by default
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].resources
+          value: {}
+
+  - it: mounts each media claim at its own path, with no config volume
+    set:
+      media:
+        - name: library
+          existingClaim: library
+          mountPath: /data
+        - name: archive
+          existingClaim: archive-claim
+          mountPath: /archive
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts
+          value:
+            - name: media-library
+              mountPath: /data
+            - name: media-archive
+              mountPath: /archive
+      - equal:
+          path: spec.template.spec.volumes
+          value:
+            - name: media-library
+              persistentVolumeClaim:
+                claimName: library
+            - name: media-archive
+              persistentVolumeClaim:
+                claimName: archive-claim
+
+  - it: fails without a media claim
+    set:
+      media: []
+    asserts:
+      - failedTemplate:
+          errorMessage: media needs at least one claim
+
+  - it: fails when a media entry has no mountPath
+    set:
+      media:
+        - name: library
+          existingClaim: library
+    asserts:
+      - failedTemplate:
+          errorMessage: media entry library needs a mountPath
+
+  - it: sets affinity when given
+    set:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: example.com/zone
+                    operator: In
+                    values: ["a"]
+    asserts:
+      - equal:
+          path: spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key
+          value: example.com/zone

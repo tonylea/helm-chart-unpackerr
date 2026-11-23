@@ -1,0 +1,21 @@
+uiPassword:
+  secretKeyRef:
+    name: unpackerr
+    key: ui-password
+metricsApiKey:
+  secretKeyRef:
+    name: unpackerr
+    key: metrics-api-key
+sonarr:
+  - url: http://sonarr:8989
+    apiKey:
+      secretKeyRef:
+        name: unpackerr
+        key: sonarr-api-key
+media:
+  - name: library
+    existingClaim: library
+    mountPath: /data
+# kind has no Prometheus Operator CRDs.
+serviceMonitor:
+  enabled: false

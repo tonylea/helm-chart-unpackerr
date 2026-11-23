@@ -1,0 +1,28 @@
+suite: ServiceMonitor
+release:
+  name: unpackerr
+templates:
+  - templates/servicemonitor.yaml
+set:
+  metricsApiKey.secretKeyRef.name: unpackerr
+tests:
+  - it: scrapes /metrics with the key from the Secret as a Bearer token
+    asserts:
+      - equal:
+          path: spec.endpoints
+          value:
+            - port: http
+              path: /metrics
+              interval: 30s
+              authorization:
+                type: Bearer
+                credentials:
+                  name: unpackerr
+                  key: api-key
+
+  - it: renders nothing when disabled
+    set:
+      serviceMonitor.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0

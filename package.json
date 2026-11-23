@@ -1,11 +1,11 @@
 {
-  "name": "helm-chart-app-name",
+  "name": "helm-chart-unpackerr",
   "version": "1.0.0",
-  "description": "Deploys App Name, [what App Name does, in a few words]",
+  "description": "Deploys Unpackerr, which extracts archives in the *arr apps' completed downloads",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tonylea/helm-chart-app-name.git"
+    "url": "git+https://github.com/tonylea/helm-chart-unpackerr.git"
   },
   "license": "MIT",
   "scripts": {

@@ -9,9 +9,22 @@
     ".husky/**",
     "node_modules/**",
     "CHANGELOG.md",
-    "package-lock.json"
+    "package-lock.json",
+    "dashboards/**"
   ],
   "words": [
-    "kubeconform"
+    "golift",
+    "httproute",
+    "kubeconform",
+    "lidarr",
+    "nindent",
+    "radarr",
+    "readarr",
+    "sabnzbd",
+    "servicemonitor",
+    "sonarr",
+    "timezone",
+    "unpackerr",
+    "websecure"
   ]
 }

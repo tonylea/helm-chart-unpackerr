@@ -1,0 +1,9 @@
+apiVersion: v2
+name: unpackerr
+description: Deploys Unpackerr, which extracts the archives in the *arr apps' completed downloads
+type: application
+version: 1.0.0
+appVersion: "v1.0.1"
+home: https://github.com/tonylea/helm-chart-unpackerr
+sources:
+  - https://github.com/Unpackerr/unpackerr
